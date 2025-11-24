@@ -1,58 +1,61 @@
-pragma solidity ^0.6.2;
+// Upgrade to the current best practice version for built-in security features
+// like overflow/underflow checks.
+pragma solidity ^0.8.0;
 
 /**
- * @dev Collection of functions related to the address type
+ * @title Address
+ * @dev Collection of functions related to the address type, mimicking OpenZeppelin's standard.
  */
 library Address {
     /**
-     * @dev Returns true if `account` is a contract.
+     * @dev Returns true if `account` has code deployed.
      *
-     * [IMPORTANT]
-     * ====
-     * It is unsafe to assume that an address for which this function returns
-     * false is an externally-owned account (EOA) and not a contract.
-     *
-     * Among others, `isContract` will return false for the following
-     * types of addresses:
-     *
-     *  - an externally-owned account
-     *  - a contract in construction
-     *  - an address where a contract will be created
-     *  - an address where a contract lived, but was destroyed
-     * ====
+     * WARNING: It is unsafe to assume that an address returning false is an 
+     * externally-owned account (EOA). This check is only definitive if true (it is a contract).
+     * It may return false for:
+     * - EOA
+     * - Contract currently in construction
+     * - Destroyed contract
+     * - Address where a contract will be created (pre-computed)
      */
     function isContract(address account) internal view returns (bool) {
-        // According to EIP-1052, 0x0 is the value returned for not-yet created accounts
-        // and 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 is returned
-        // for accounts without code, i.e. `keccak256('')`
+        // According to EIP-1052, we check the code hash of the account.
+        // The code hash for an EOA or empty account is the hash of an empty string.
         bytes32 codehash;
-        bytes32 accountHash = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+        
+        // This is keccak256('') - the hash for an account with no code.
+        bytes32 constant ACCOUNT_HASH_NO_CODE = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+        
         // solhint-disable-next-line no-inline-assembly
-        assembly { codehash := extcodehash(account) }
-        return (codehash != accountHash && codehash != 0x0);
+        assembly { 
+            // Use extcodehash to fetch the code hash of the given account address.
+            codehash := extcodehash(account) 
+        }
+        
+        // An account is a contract if its codehash is neither the empty hash nor 0x0
+        // (which is returned for accounts not yet created).
+        return (codehash != ACCOUNT_HASH_NO_CODE && codehash != bytes32(0));
     }
 
     /**
-     * @dev Replacement for Solidity's `transfer`: sends `amount` wei to
-     * `recipient`, forwarding all available gas and reverting on errors.
+     * @dev Sends `amount` Wei to `recipient`, forwarding all available gas.
+     * Reverts on error. This is the modern, safe replacement for Solidity's `transfer()`.
      *
-     * https://eips.ethereum.org/EIPS/eip-1884[EIP1884] increases the gas cost
-     * of certain opcodes, possibly making contracts go over the 2300 gas limit
-     * imposed by `transfer`, making them unable to receive funds via
-     * `transfer`. {sendValue} removes this limitation.
-     *
-     * https://diligence.consensys.net/posts/2019/09/stop-using-soliditys-transfer-now/[Learn more].
-     *
-     * IMPORTANT: because control is transferred to `recipient`, care must be
-     * taken to not create reentrancy vulnerabilities. Consider using
-     * {ReentrancyGuard} or the
-     * https://solidity.readthedocs.io/en/v0.5.11/security-considerations.html#use-the-checks-effects-interactions-pattern[checks-effects-interactions pattern].
+     * IMPORTANT: Control flow is transferred to `recipient`. Must guard against 
+     * reentrancy vulnerabilities by using the Checks-Effects-Interactions pattern.
+     * * @param recipient The address to receive the Ether. Must be payable.
+     * @param amount The amount of Wei to send.
      */
     function sendValue(address payable recipient, uint256 amount) internal {
+        // Require sufficient balance on the contract calling this library.
         require(address(this).balance >= amount, "Address: insufficient balance");
 
-        // solhint-disable-next-line avoid-low-level-calls, avoid-call-value
+        // The low-level `call` is used instead of `transfer` to avoid the 2300 gas limit 
+        // issue (EIP-1884), ensuring the recipient contract can execute logic.
+        // solhint-disable-next-line avoid-low-level-calls
         (bool success, ) = recipient.call{ value: amount }("");
+        
+        // Check if the call was successful (no revert occurred).
         require(success, "Address: unable to send value, recipient may have reverted");
     }
 }
